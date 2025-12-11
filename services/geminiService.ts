@@ -3,7 +3,6 @@ import { GoogleGenAI, Chat, GenerateContentResponse, FunctionDeclaration, Type, 
 import { CIPHER_SYSTEM_PROMPT } from "../constants";
 import { CustomerContext, Product, VendorContext } from "../types";
 import { searchProducts } from "./supabaseService";
-import { checkAffordability } from "./internalFinancialService";
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -30,21 +29,6 @@ const searchProductsTool: FunctionDeclaration = {
   },
 };
 
-const checkAffordabilityTool: FunctionDeclaration = {
-  name: 'checkAffordability',
-  description: 'Perform a "Financial Vibe Check" to see if the user can afford a product based on their financial forecast.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      price: {
-        type: Type.NUMBER,
-        description: 'The price of the item to check affordability for.',
-      }
-    },
-    required: ['price'],
-  },
-};
-
 export const initializeGemini = () => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // Using the injected environment variable
   if (apiKey) {
@@ -60,12 +44,6 @@ const executeTool = async (name: string, args: any): Promise<any> => {
     const products = await searchProducts(query, category);
     return { products: products };
   } 
-  else if (name === 'checkAffordability') {
-     console.log(`[Cipher] Checking financial health...`);
-     const { price } = args;
-     const analysis = await checkAffordability(price);
-     return { canAfford: analysis };
-  }
   return { error: "Unknown tool" };
 };
 
@@ -415,18 +393,23 @@ export class LiveClient {
     }
 
     // 4. Handle Tool Calls
-    if (toolCall) {
+    if (toolCall?.functionCalls && toolCall.functionCalls.length > 0) {
        for (const fc of toolCall.functionCalls) {
-          const result = await executeTool(fc.name, fc.args);
-          this.sessionPromise?.then(session => {
-             session.sendToolResponse({
-               functionResponses: {
-                 id: fc.id,
-                 name: fc.name,
-                 response: result
-               }
-             });
-          });
+          const functionName = typeof fc.name === 'string' ? fc.name : '';
+          const functionId = fc.id ?? ''; 
+          
+          if (functionName) {
+            const result = await executeTool(functionName, fc.args);
+            this.sessionPromise?.then(session => {
+               session.sendToolResponse({
+                 functionResponses: {
+                   id: functionId,
+                   name: functionName,
+                   response: result
+                 }
+               });
+            });
+          }
        }
     }
   }

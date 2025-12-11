@@ -14,10 +14,9 @@ interface ChatWidgetProps {
   isConnected: boolean;
   products: Product[];
   currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'vendor_dashboard';
-  hasFinancialConfig: boolean;
 }
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConnected, products, currentView, hasFinancialConfig }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConnected, products, currentView }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Initialize messages from Local Storage
@@ -79,7 +78,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConne
     if (context && products.length > 0) {
       initChat();
     }
-  }, [context, vendorContext, products, hasFinancialConfig]);
+  }, [context, vendorContext, products]);
 
   // Cleanup Voice on unmount or close
   useEffect(() => {

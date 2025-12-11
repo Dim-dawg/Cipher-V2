@@ -151,21 +151,6 @@ export interface CartItem extends Product {
 
 
 
-export interface FinancialSummary {
-  isConnected: boolean;
-  currentBalance: number;
-  monthlyIncome: number;
-  monthlyExpense: number;
-  safeToSpend: number;
-  recentTransactions: {
-    id: string;
-    date: string;
-    merchant: string;
-    amount: number;
-    category: string;
-    type: 'income' | 'expense';
-  }[];
-}
 
 declare global {
   interface Window {

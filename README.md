@@ -1,7 +1,7 @@
 
 # Sneak Peek - Authentic Belizean E-Commerce
 
-Sneak Peek is a premium, multi-vendor e-commerce platform dedicated to connecting global customers with authentic Belizean artisans. It features a local-first architecture, an integrated AI concierge (Cipher) powered by Google Gemini, and financial health integration via Dim Dawg.
+Sneak Peek is a premium, multi-vendor e-commerce platform dedicated to connecting global customers with authentic Belizean artisans. It features a local-first architecture, an integrated AI concierge (Cipher) powered by Google Gemini.
 
 ![Sneak Peek Banner](https://images.unsplash.com/photo-1544531586-fde5298cdd40?auto=format&fit=crop&q=80&w=2560)
 
@@ -16,7 +16,6 @@ Sneak Peek is a premium, multi-vendor e-commerce platform dedicated to connectin
 ### 🤖 "Cipher" AI Concierge
 - **Powered by Google Gemini 2.5 Flash**: A context-aware assistant that knows the catalog, your order history, and your preferences.
 - **Generative Images**: If a product image is missing, Cipher uses **Gemini Image Generation** to create a photorealistic visualization on the fly.
-- **Financial Vibe Check**: Integrates with "Dim Dawg" (external financial dashboard) to advise users if they can afford a purchase based on their budget forecast.
 
 ### 💾 Local-First Architecture
 - **In-Browser SQLite**: Uses `sql.js` (WASM) to run a real relational database entirely in the browser.
@@ -51,25 +50,12 @@ The application automatically initializes the SQLite database on first load. It 
 
 ---
 
-## 💰 Financial Integration (Dim Dawg)
-
-Sneak Peek connects to the "Dim Dawg" financial analyzer to provide responsible shopping advice.
-
-1. **Configure**: Click the **Settings Gear** icon in the Navbar.
-2. **Enter Credentials**:
-   - **Endpoint**: Your Google Apps Script Web App URL.
-   - **API Key**: Your Dim Dawg API Key.
-3. **Use**: Ask Cipher *"Can I afford this?"* while viewing a product.
-   - Cipher will query your financial forecast securely and return a "SAFE" or "RISKY" verdict based on your projected balance.
-
----
-
 ## 📂 Project Structure
 
 - `App.tsx`: Main controller handling Routing, State, and UI Layout.
 - `services/db.ts`: SQLite engine wrapper, schema definitions, and seeding logic.
 - `services/supabaseService.ts`: Data access layer (abstracts SQL queries).
-- `services/geminiService.ts`: AI logic, tool definitions (searchProducts, checkAffordability), and image generation.
+- `services/geminiService.ts`: AI logic, tool definitions (searchProducts), and image generation.
 - `components/`: Reusable UI components (Navbar, ChatWidget, StoreProductCard, etc.).
 
 ---

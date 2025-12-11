@@ -67,7 +67,7 @@ const SEED_RUNMAN = { id: 3, username: "Jose The Runner", email: "runman@sneakpe
 
 const SEED_ADDRESS = { id: 1, user_id: 1, label: "Home", address_line: "123 Palm Ave", city: "Belize City", region: "Belize", country: "Belize", postal_code: "00000" };
 const SEED_ORDER = { id: 1001, user_id: 1, total_amount: 53.50, status: "delivered", payment_method: "credit_card", shipping_address: "123 Palm Ave, Belize City", created_at: new Date(Date.now() - 86400000 * 5).toISOString() };
-const SEED_AGENT = { id: 1, name: "Cipher", model: "gemini-2.5-flash", personality: "Friendly, Professional, Financial Aware", created_at: new Date().toISOString() };
+const SEED_AGENT = { id: 1, name: "Cipher", model: "gemini-2.5-flash", personality: "Friendly, Professional", created_at: new Date().toISOString() };
 
 export const initDB = async () => {
   if (db) return;

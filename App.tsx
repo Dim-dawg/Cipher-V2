@@ -11,14 +11,13 @@ import CheckoutModal from './components/CheckoutModal';
 
 import VendorDashboard from './components/VendorDashboard';
 import RunManDashboard from './components/RunManDashboard';
-import FinancialDashboard from './components/FinancialDashboard';
 import { fetchCustomerContext, getAllProducts, loginUser, updateWishlistInDb, getAllStorefronts, getStorefrontDetails, fetchVendorContext, createOrder } from './services/supabaseService';
 import { initializeGemini } from './services/geminiService';
 import { CustomerContext, Product, CartItem, WishlistItem, Storefront, VendorContext, PaymentMethod } from './types';
 
 const App: React.FC = () => {
   // Application State
-  const [view, setView] = useState<'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'store_profile' | 'vendor_dashboard' | 'run_man_dashboard' | 'finances'>('home');
+  const [view, setView] = useState<'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'store_profile' | 'vendor_dashboard' | 'run_man_dashboard'>('home');
   const [loading, setLoading] = useState(true);
   
   // Data State
@@ -214,7 +213,7 @@ const App: React.FC = () => {
   }
 
   // Determine if sidebar should be shown (Not on vendor/runman dashboard)
-  const showSidebar = view !== 'vendor_dashboard' && view !== 'run_man_dashboard' && view !== 'finances';
+  const showSidebar = view !== 'vendor_dashboard' && view !== 'run_man_dashboard';
   const showChat = view !== 'run_man_dashboard';
 
   return (
@@ -257,14 +256,6 @@ const App: React.FC = () => {
                     userId={context.profile.id} 
                     onLogout={handleLogout}
                     onPreviewStore={handlePreviewOwnStore}
-                />
-            )}
-
-            {/* FINANCIAL DASHBOARD */}
-            {view === 'finances' && (
-                <FinancialDashboard 
-
-                  
                 />
             )}
 

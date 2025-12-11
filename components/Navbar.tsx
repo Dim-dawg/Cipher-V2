@@ -5,13 +5,12 @@ import { ShoppingCart, Menu, UserCircle, X, Home, ShoppingBag, Settings, Heart, 
 import { CustomerContext } from '../types';
 
 interface NavbarProps {
-  onNavigate: (view: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'vendor_dashboard' | 'run_man_dashboard' | 'finances') => void;
+  onNavigate: (view: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'vendor_dashboard' | 'run_man_dashboard') => void;
   cartCount: number;
-  currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'store_profile' | 'vendor_dashboard' | 'run_man_dashboard' | 'finances';
+  currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'store_profile' | 'vendor_dashboard' | 'run_man_dashboard';
   context: CustomerContext;
   onSignIn: () => void;
   onSignOut: () => void;
-  onOpenFinancialSettings: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ 
@@ -20,8 +19,7 @@ const Navbar: React.FC<NavbarProps> = ({
   currentView, 
   context, 
   onSignIn, 
-  onSignOut,
-  onOpenFinancialSettings 
+  onSignOut
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -89,12 +87,6 @@ const Navbar: React.FC<NavbarProps> = ({
             >
                 <Store size={16} /> Artisans
             </button>
-            <button 
-                onClick={() => onNavigate('finances')} 
-                className={`hover:text-belize-teal transition-colors flex items-center gap-1 ${currentView === 'finances' ? 'text-belize-teal font-bold' : ''}`}
-            >
-                <DollarSign size={16} /> Finances
-            </button>
             
             {/* Vendor Link */}
             {context.profile?.role === 'owner' && (
@@ -109,15 +101,6 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* Financial Settings - Kept for quick access or configuration */}
-          <button 
-             onClick={onOpenFinancialSettings}
-             className="text-gray-400 hover:text-belize-teal transition-colors p-2"
-             title="Financial Settings"
-          >
-             <Settings size={20} />
-          </button>
-
           {/* Wishlist Mobile/Desktop */}
           <button 
              onClick={() => onNavigate('wishlist')}
@@ -165,7 +148,6 @@ const Navbar: React.FC<NavbarProps> = ({
             <button onClick={() => { onNavigate('home'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Home</button>
             <button onClick={() => { onNavigate('shop'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Shop</button>
             <button onClick={() => { onNavigate('artisans'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Artisans</button>
-            <button onClick={() => { onNavigate('finances'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Finances</button>
             {context.profile?.role === 'owner' && (
                  <button onClick={() => { onNavigate('vendor_dashboard'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-bold text-belize-teal hover:bg-gray-50 rounded">My Dashboard</button>
             )}
