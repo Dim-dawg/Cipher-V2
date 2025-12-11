@@ -29,8 +29,7 @@ const searchProductsTool: FunctionDeclaration = {
   },
 };
 
-export const initializeGemini = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // Using the injected environment variable
+export const initializeGemini = (apiKey: string) => {
   if (apiKey) {
     aiClient = new GoogleGenAI({ apiKey });
   }

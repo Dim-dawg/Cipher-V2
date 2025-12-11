@@ -38,7 +38,9 @@ const App: React.FC = () => {
 
   // Initialization
   useEffect(() => {
-    initializeGemini();
+    // TODO: Replace with a securely fetched API key (e.g., from a Netlify Function)
+    const geminiApiKey = "YOUR_GEMINI_API_KEY"; // THIS IS A PLACEHOLDER. DO NOT COMMIT REAL KEY.
+    initializeGemini(geminiApiKey);
     refreshSystemState(null);
   }, []);
 
