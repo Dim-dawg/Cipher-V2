@@ -38,10 +38,17 @@ const App: React.FC = () => {
 
   // Initialization
   useEffect(() => {
-    // TODO: Replace with a securely fetched API key (e.g., from a Netlify Function)
-    const geminiApiKey = "YOUR_GEMINI_API_KEY"; // THIS IS A PLACEHOLDER. DO NOT COMMIT REAL KEY.
-    initializeGemini(geminiApiKey);
-    refreshSystemState(null);
+    // WARNING: This key will be exposed client-side. For highly sensitive applications,
+    // consider using a Netlify Function to proxy requests to the Gemini API.
+    const geminiApiKey = process.env.API_KEY; 
+    
+    if (geminiApiKey) {
+      initializeGemini(geminiApiKey);
+      refreshSystemState(null);
+    } else {
+      console.error("GEMINI_API_KEY is not set. Chatbot will not initialize.");
+      setLoading(false); // Stop loading if API key is missing
+    }
   }, []);
 
 
