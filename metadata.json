@@ -1,0 +1,7 @@
+{
+  "name": "Authentic Belize Treasures AI",
+  "description": "A customer service AI agent named Cipher for Sneak Peek, integrated with Supabase for personalized customer context.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
