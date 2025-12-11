@@ -20,8 +20,6 @@ interface ChatWidgetProps {
   currentWishlistIds?: number[];
   currentlyDisplayedProducts?: Product[]; 
   currentSelectedStore?: Storefront | null;
-}
-}
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({ 
   context, 
