@@ -1,42 +1,47 @@
 
 
 import { CustomerContext, Product, User, Order, Address, WishlistItem, Review, Storefront, VendorContext, CartItem, PaymentMethod, RunManProfile, Delivery, RunManContext } from '../types';
-import { executeQuery, executeRun } from './db';
+import { supabase } from './supabaseClient';
 
 // --- SERVICE METHODS USING SQLITE ---
 
-export const checkSupabaseConnection = async (): Promise<boolean> => {
-  // DB init happens lazily, so we just assume "true" effectively
-  return true;
-};
 
-export const connectToSupabase = (url: string, key: string): boolean => {
-  return true;
-};
 
 // Real Login logic against SQLite DB
-export const loginUser = async (email: string, password?: string, role: 'customer' | 'owner' | 'run_man' = 'customer'): Promise<User | null> => {
-    // If no password provided (legacy/lazy auth), default to old behavior for safety or fail
+export const loginUser = async (email: string, password?: string): Promise<User | null> => {
     if (!password) {
-       console.warn("Attempting login without password");
+       console.warn("Attempting login without password in Supabase Auth, which requires a password.");
        return null;
     }
 
-    // Normalized email for case-insensitive check
-    const normalizedEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
 
-    // Now filtering by role as well to allow same email for different account types
-    // Using LOWER(email) for case-insensitive matching
-    const users = await executeQuery(
-        "SELECT * FROM users WHERE LOWER(email) = ? AND password = ? AND role = ?", 
-        [normalizedEmail, password, role]
-    );
-    
-    if (users.length > 0) {
-        // Remove password from returned object for safety
-        const user = users[0];
-        delete user.password;
-        return user as User;
+    if (error) {
+        console.error("Supabase login error:", error.message);
+        throw new Error(error.message);
+    }
+
+    if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+            .from('user')
+            .select('id, username, email, role')
+            .eq('email', data.user.email)
+            .single();
+
+        if (profileError) {
+            console.error("Supabase profile fetch error:", profileError.message);
+            return {
+                id: data.user.id, // Supabase UUID
+                username: data.user.email?.split('@')[0] || '',
+                email: data.user.email || '',
+                role: 'customer', // Default role if profile not found
+            };
+        }
+        
+        return profile as User;
     }
     
     return null;
@@ -53,54 +58,96 @@ export const registerUser = async (
 ): Promise<User | null> => {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user exists WITH THIS SPECIFIC ROLE (Case Insensitive)
-    const existing = await executeQuery(
-        "SELECT id FROM users WHERE LOWER(email) = ? AND role = ?", 
-        [normalizedEmail, role]
-    );
-    
-    if (existing.length > 0) {
-        throw new Error(`A ${role} account with this email already exists`);
+    // 1. Supabase Auth Sign Up
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: password,
+        options: {
+            data: {
+                username: username,
+                role: role
+            }
+        }
+    });
+
+    if (authError) {
+        console.error("Supabase sign up error:", authError.message);
+        throw new Error(authError.message);
     }
 
-    // Insert new user
-    await executeRun(
-        "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)", 
-        [username, normalizedEmail, password, role]
-    );
-    
-    // Fetch user to get ID - ensure we get the one with the correct role
-    const newUsers = await executeQuery(
-        "SELECT * FROM users WHERE LOWER(email) = ? AND role = ?", 
-        [normalizedEmail, role]
-    );
-    const user = newUsers[0] as User;
+    if (!authData.user) {
+        throw new Error("User data not returned after sign up.");
+    }
 
-    // If Owner, Create Storefront
+    const newUserAuthId = authData.user.id;
+
+    // 2. Insert into public.user table
+    const { data: profile, error: profileError } = await supabase
+        .from('user')
+        .insert({ 
+            id: newUserAuthId,
+            username: username, 
+            email: normalizedEmail,
+            role: role,
+            password_hash: 'SUPABASE_MANAGED'
+        })
+        .select('id, username, email, role')
+        .single();
+
+    if (profileError) {
+        console.error("Supabase profile insert error:", profileError.message);
+        throw new Error(profileError.message);
+    }
+
+    // 3. Handle role-specific inserts
     if (role === 'owner' && storeName) {
         const description = `Welcome to ${storeName}. We sell amazing products.`;
         const banner = "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&q=80&w=1200";
         const logo = "https://placehold.co/200x200/007f8b/ffffff?text=Store";
         
-        await executeRun(
-            "INSERT INTO storefronts (name, description, banner_url, logo_url, location, owner_name, owner_id, founded_year, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-            [storeName, description, banner, logo, 'Belize', username, user.id, new Date().getFullYear(), 'New']
-        );
+        const { error: storeError } = await supabase
+            .from('storefronts')
+            .insert({ 
+                name: storeName, 
+                description: description, 
+                banner_url: banner, 
+                logo_url: logo, 
+                location: 'Belize', 
+                owner_name: username, 
+                owner_id: newUserAuthId,
+                founded_year: new Date().getFullYear(), 
+                tags: 'New'
+            });
+        if (storeError) {
+            console.error("Supabase storefront insert error:", storeError.message);
+            throw new Error(storeError.message);
+        }
     }
     
-    // If Run Man, Create Profile
     if (role === 'run_man' && runManDetails) {
-        await executeRun(
-            "INSERT INTO run_man_profiles (user_id, vehicle_type, vehicle_plate, phone, status, current_lat, current_lng, is_online, wallet_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [user.id, runManDetails.vehicleType, runManDetails.vehiclePlate, runManDetails.phone, 'active', 17.498, -88.190, 1, 0.0] // Default Belize City Coords
-        );
+        const { error: runManError } = await supabase
+            .from('run_man_profiles')
+            .insert({
+                user_id: newUserAuthId,
+                vehicle_type: runManDetails.vehicleType,
+                vehicle_plate: runManDetails.vehiclePlate,
+                phone: runManDetails.phone,
+                status: 'active',
+                current_lat: 17.498,
+                current_lng: -88.190,
+                is_online: 1, 
+                wallet_balance: 0.0
+            });
+        if (runManError) {
+            console.error("Supabase Run Man profile insert error:", runManError.message);
+            throw new Error(runManError.message);
+        }
     }
     
-    delete (user as any).password;
-    return user;
+    return profile as User;
 };
 
-export const fetchCustomerContext = async (userId: number | null): Promise<CustomerContext> => {
+export const fetchCustomerContext = async (userId: string | null): Promise<CustomerContext> => {
   if (!userId) {
     return {
       profile: null,
@@ -112,222 +159,441 @@ export const fetchCustomerContext = async (userId: number | null): Promise<Custo
     };
   }
 
-  // Run Queries
-  const profileRes = await executeQuery("SELECT id, username, email, role FROM users WHERE id = ?", [userId]);
-  const addrRes = await executeQuery("SELECT * FROM addresses WHERE user_id = ?", [userId]);
-  const ordersRes = await executeQuery("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC", [userId]);
-  const wishlistRes = await executeQuery("SELECT * FROM wishlist WHERE user_id = ?", [userId]);
+  // Fetch profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user')
+    .select('id, username, email, role')
+    .eq('id', userId)
+    .single();
+
+  if (profileError) {
+    console.error("Supabase fetch profile error:", profileError.message);
+  }
+
+  // Fetch addresses
+  const { data: addresses, error: addrError } = await supabase
+    .from('addresses')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (addrError) {
+    console.error("Supabase fetch addresses error:", addrError.message);
+  }
+
+  // Fetch orders
+  const { data: orders, error: ordersError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (ordersError) {
+    console.error("Supabase fetch orders error:", ordersError.message);
+  }
+
+  // Fetch wishlist
+  const { data: wishlist, error: wishlistError } = await supabase
+    .from('wishlist')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (wishlistError) {
+    console.error("Supabase fetch wishlist error:", wishlistError.message);
+  }
 
   return {
-    profile: (profileRes[0] as User) || null,
-    addresses: addrRes as Address[],
-    orders: ordersRes as Order[],
+    profile: (profile as User) || null,
+    addresses: (addresses as Address[]) || [],
+    orders: (orders as Order[]) || [],
     recentItems: [],
-    wishlist: wishlistRes as WishlistItem[],
+    wishlist: (wishlist as WishlistItem[]) || [],
     reviews: []
   };
 };
 
-export const fetchVendorContext = async (userId: number): Promise<VendorContext | null> => {
-  const profileRes = await executeQuery("SELECT id, username, email, role FROM users WHERE id = ?", [userId]);
-  if (profileRes.length === 0) return null;
+export const fetchVendorContext = async (userId: string): Promise<VendorContext | null> => {
+  // Fetch profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user')
+    .select('id, username, email, role')
+    .eq('id', userId)
+    .single();
 
-  const storeRes = await executeQuery("SELECT * FROM storefronts WHERE owner_id = ?", [userId]);
-  if (storeRes.length === 0) return null; // User is owner but has no store yet?
+  if (profileError || !profile) {
+    console.error("Supabase fetch profile error for vendor:", profileError?.message);
+    return null;
+  }
 
-  const store = storeRes[0] as Storefront;
-  const products = await executeQuery("SELECT * FROM products WHERE storefront_id = ?", [store.id]);
-  
-  // REAL SALES CALCULATION:
-  const salesQuery = `
-    SELECT oi.*, p.name as product_name, p.price, o.created_at
-    FROM order_items oi
-    JOIN products p ON oi.product_id = p.id
-    JOIN orders o ON oi.order_id = o.id
-    WHERE p.storefront_id = ?
-    ORDER BY o.created_at DESC
-  `;
-  const salesItems = await executeQuery(salesQuery, [store.id]);
-  const totalSales = salesItems.reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0);
+  // Fetch store
+  const { data: store, error: storeError } = await supabase
+    .from('storefronts')
+    .select('*')
+    .eq('owner_id', userId)
+    .single();
 
-  // Fetch unique related orders
-  const uniqueOrderIds = [...new Set(salesItems.map(item => item.order_id))];
-  let relatedOrders: any[] = [];
-  let deliveries: any[] = [];
-  
+  if (storeError || !store) {
+    console.error("Supabase fetch store error for vendor:", storeError?.message);
+    return null; // User is owner but has no store yet?
+  }
+
+  // Fetch products
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('storefront_id', store.id);
+
+  if (productsError) {
+    console.error("Supabase fetch products error for vendor:", productsError.message);
+  }
+
+  // Fetch sales items and calculate total sales
+  // NOTE: Supabase RLS policies might be needed for this complex join/filter
+  const { data: salesItems, error: salesError } = await supabase
+    .from('order_items')
+    .select(`
+      *,
+      products (name, price, storefront_id),
+      orders (created_at)
+    `)
+    .eq('products.storefront_id', store.id) // Filter by storefront_id via products table
+    .order('created_at', { ascending: false, foreignTable: 'orders' });
+
+
+  let totalSales = 0;
+  let uniqueOrderIds: number[] = []; // order_id is number in schema
+  if (salesItems) {
+      totalSales = salesItems.reduce((acc, item: any) => acc + (item.price_at_purchase * item.quantity), 0);
+      uniqueOrderIds = [...new Set(salesItems.map((item: any) => item.order_id))];
+  }
+
+  // Fetch related orders
+  let relatedOrders: Order[] = [];
   if (uniqueOrderIds.length > 0) {
-      const placeholders = uniqueOrderIds.map(() => '?').join(',');
-      relatedOrders = await executeQuery(`SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY created_at DESC`, uniqueOrderIds);
-      
-      // Fetch deliveries related to these orders
-      deliveries = await executeQuery(`SELECT * FROM deliveries WHERE order_id IN (${placeholders})`, uniqueOrderIds);
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .in('id', uniqueOrderIds)
+        .order('created_at', { ascending: false });
+      if (ordersError) console.error("Supabase fetch related orders error:", ordersError.message);
+      relatedOrders = orders || [];
+  }
+
+  // Fetch deliveries related to these orders
+  let deliveries: Delivery[] = [];
+  if (uniqueOrderIds.length > 0) {
+      const { data: deliveryData, error: deliveryError } = await supabase
+        .from('deliveries')
+        .select('*')
+        .in('order_id', uniqueOrderIds);
+      if (deliveryError) console.error("Supabase fetch deliveries error:", deliveryError.message);
+      deliveries = deliveryData || [];
   }
 
   return {
-    profile: profileRes[0] as User,
-    store: store,
-    products: products as Product[],
-    orders: relatedOrders as Order[],
+    profile: profile as User,
+    store: store as Storefront,
+    products: (products as Product[]) || [],
+    orders: relatedOrders,
     totalSales: totalSales,
-    deliveries: deliveries as Delivery[]
+    deliveries: deliveries
   };
 };
 
 // --- RUN MAN CONTEXT ---
 
-export const fetchRunManContext = async (userId: number): Promise<RunManContext | null> => {
-    const profileRes = await executeQuery("SELECT id, username, email, role FROM users WHERE id = ?", [userId]);
-    if (profileRes.length === 0) return null;
+export const fetchRunManContext = async (userId: string): Promise<RunManContext | null> => {
+    // Fetch profile
+    const { data: profile, error: profileError } = await supabase
+        .from('user')
+        .select('id, username, email, role')
+        .eq('id', userId)
+        .single();
 
-    const runManRes = await executeQuery("SELECT * FROM run_man_profiles WHERE user_id = ?", [userId]);
-    if (runManRes.length === 0) return null;
+    if (profileError || !profile) {
+        console.error("Supabase fetch profile error for run man:", profileError?.message);
+        return null;
+    }
 
-    const runManProfile = runManRes[0] as RunManProfile;
+    // Fetch run man profile
+    const { data: runManProfile, error: runManError } = await supabase
+        .from('run_man_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+    if (runManError || !runManProfile) {
+        console.error("Supabase fetch run man profile error:", runManError?.message);
+        return null;
+    }
 
     // Get Active Delivery (assigned or picked_up)
-    const activeDelRes = await executeQuery(`
-        SELECT * FROM deliveries 
-        WHERE run_man_id = ? AND status IN ('assigned', 'picked_up') 
-        LIMIT 1
-    `, [userId]);
+    const { data: activeDelivery, error: activeDelError } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('run_man_id', userId)
+        .in('status', ['assigned', 'picked_up'])
+        .limit(1)
+        .single();
+
+    if (activeDelError && activeDelError.code !== 'PGRST116') { // PGRST116 is 'no rows found'
+        console.error("Supabase fetch active delivery error:", activeDelError.message);
+    }
 
     // Get Available Jobs (status = searching) - Only show if driver is online
-    let availableRes: any[] = [];
+    let availableDeliveries: Delivery[] = [];
     if (runManProfile.is_online) {
-        availableRes = await executeQuery(`
-            SELECT * FROM deliveries 
-            WHERE status = 'searching'
-            ORDER BY created_at DESC
-        `);
+        const { data: availableRes, error: availableError } = await supabase
+            .from('deliveries')
+            .select('*')
+            .eq('status', 'searching')
+            .order('created_at', { ascending: false });
+        
+        if (availableError) console.error("Supabase fetch available deliveries error:", availableError.message);
+        availableDeliveries = availableRes || [];
     }
 
     // Get Completed Jobs
-    const completedRes = await executeQuery(`
-        SELECT * FROM deliveries 
-        WHERE run_man_id = ? AND status = 'delivered'
-        ORDER BY updated_at DESC
-        LIMIT 20
-    `, [userId]);
+    const { data: completedDeliveries, error: completedError } = await supabase
+        .from('deliveries')
+        .select('*')
+        .eq('run_man_id', userId)
+        .eq('status', 'delivered')
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+    if (completedError) console.error("Supabase fetch completed deliveries error:", completedError.message);
 
     return {
-        profile: profileRes[0] as User,
-        runManProfile: runManProfile,
-        activeDelivery: activeDelRes[0] as Delivery || null,
-        availableDeliveries: availableRes as Delivery[],
-        completedDeliveries: completedRes as Delivery[]
+        profile: profile as User,
+        runManProfile: runManProfile as RunManProfile,
+        activeDelivery: (activeDelivery as Delivery) || null,
+        availableDeliveries: availableDeliveries,
+        completedDeliveries: (completedDeliveries as Delivery[]) || []
     };
 };
 
 // --- LOGISTICS METHODS ---
 
 export const requestDelivery = async (orderId: number, pickupLocation: string, dropoffLocation: string) => {
-    const createdAt = new Date().toISOString();
-    // Base earnings logic (e.g. flat rate $10 BZD for local run)
-    const earnings = 10.00; 
+    const earnings = 10.00; // Base earnings logic (e.g. flat rate $10 BZD for local run)
 
     // Check if delivery already exists
-    const existing = await executeQuery("SELECT id FROM deliveries WHERE order_id = ?", [orderId]);
-    if (existing.length > 0) {
+    const { data: existing, error: existingError } = await supabase
+        .from('deliveries')
+        .select('id')
+        .eq('order_id', orderId);
+
+    if (existingError) {
+        console.error("Supabase check existing delivery error:", existingError.message);
+        throw new Error(existingError.message);
+    }
+    if (existing && existing.length > 0) {
         return;
     }
 
-    await executeRun(
-        "INSERT INTO deliveries (order_id, status, pickup_location, dropoff_location, earnings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [orderId, 'searching', pickupLocation, dropoffLocation, earnings, createdAt, createdAt]
-    );
+    const { error: insertError } = await supabase
+        .from('deliveries')
+        .insert({
+            order_id: orderId,
+            status: 'searching',
+            pickup_location: pickupLocation,
+            dropoff_location: dropoffLocation,
+            earnings: earnings,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+    
+    if (insertError) {
+        console.error("Supabase insert delivery error:", insertError.message);
+        throw new Error(insertError.message);
+    }
 
     // Update order status to processing
-    await executeRun("UPDATE orders SET status = 'processing' WHERE id = ?", [orderId]);
+    const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'processing' })
+        .eq('id', orderId);
+    
+    if (updateError) {
+        console.error("Supabase update order status error:", updateError.message);
+        throw new Error(updateError.message);
+    }
 };
 
-export const acceptDelivery = async (deliveryId: number, runManId: number) => {
-    const updatedAt = new Date().toISOString();
-    await executeRun(
-        "UPDATE deliveries SET status = 'assigned', run_man_id = ?, updated_at = ? WHERE id = ?",
-        [runManId, updatedAt, deliveryId]
-    );
+export const acceptDelivery = async (deliveryId: number, runManId: string) => {
+    const { error } = await supabase
+        .from('deliveries')
+        .update({ status: 'assigned', run_man_id: runManId, updated_at: new Date().toISOString() })
+        .eq('id', deliveryId);
+    
+    if (error) {
+        console.error("Supabase accept delivery error:", error.message);
+        throw new Error(error.message);
+    }
 };
 
 export const updateDeliveryStatus = async (deliveryId: number, status: 'picked_up' | 'delivered', proofOfDelivery?: string) => {
     const updatedAt = new Date().toISOString();
     
-    await executeRun(
-        "UPDATE deliveries SET status = ?, updated_at = ?, proof_of_delivery = ? WHERE id = ?",
-        [status, updatedAt, proofOfDelivery || null, deliveryId]
-    );
+    const { error: updateDeliveryError } = await supabase
+        .from('deliveries')
+        .update({ status: status, updated_at: updatedAt, proof_of_delivery: proofOfDelivery || null })
+        .eq('id', deliveryId);
+
+    if (updateDeliveryError) {
+        console.error("Supabase update delivery status error:", updateDeliveryError.message);
+        throw new Error(updateDeliveryError.message);
+    }
 
     // Sync status with the main Order table
     if (status === 'delivered') {
          // Get order details & earnings
-         const dRes = await executeQuery("SELECT order_id, run_man_id, earnings FROM deliveries WHERE id = ?", [deliveryId]);
-         if (dRes.length > 0) {
-             const { order_id, run_man_id, earnings } = dRes[0];
-             
-             // Update Order Status
-             await executeRun("UPDATE orders SET status = 'delivered' WHERE id = ?", [order_id]);
+         const { data: deliveryData, error: deliveryDataError } = await supabase
+            .from('deliveries')
+            .select('order_id, run_man_id, earnings')
+            .eq('id', deliveryId)
+            .single();
 
-             // PAY THE DRIVER (Add to Wallet)
-             if (run_man_id) {
-                 await executeRun(
-                     "UPDATE run_man_profiles SET wallet_balance = wallet_balance + ? WHERE user_id = ?",
-                     [earnings, run_man_id]
-                 );
+         if (deliveryDataError || !deliveryData) {
+            console.error("Supabase fetch delivery data error:", deliveryDataError?.message);
+            throw new Error(deliveryDataError?.message || "Delivery data not found.");
+         }
+             
+         const { order_id, run_man_id, earnings } = deliveryData;
+             
+         // Update Order Status
+         const { error: updateOrderError } = await supabase
+            .from('orders')
+            .update({ status: 'delivered' })
+            .eq('id', order_id);
+         if (updateOrderError) {
+            console.error("Supabase update order status error (delivered):", updateOrderError.message);
+            throw new Error(updateOrderError.message);
+         }
+
+         // PAY THE DRIVER (Add to Wallet)
+         if (run_man_id) {
+             const { error: updateWalletError } = await supabase
+                .from('run_man_profiles')
+                .update({ wallet_balance: (runManProfile: RunManProfile) => runManProfile.wallet_balance + earnings })
+                .eq('user_id', run_man_id);
+             if (updateWalletError) {
+                console.error("Supabase update wallet error:", updateWalletError.message);
+                throw new Error(updateWalletError.message);
              }
          }
     } else if (status === 'picked_up') {
-         const dRes = await executeQuery("SELECT order_id FROM deliveries WHERE id = ?", [deliveryId]);
-         if (dRes.length > 0) {
-             const orderId = dRes[0].order_id;
-             await executeRun("UPDATE orders SET status = 'shipped' WHERE id = ?", [orderId]);
+         const { data: deliveryData, error: deliveryDataError } = await supabase
+            .from('deliveries')
+            .select('order_id')
+            .eq('id', deliveryId)
+            .single();
+
+         if (deliveryDataError || !deliveryData) {
+            console.error("Supabase fetch delivery data error:", deliveryDataError?.message);
+            throw new Error(deliveryDataError?.message || "Delivery data not found.");
+         }
+         const orderId = deliveryData.order_id;
+         const { error: updateOrderError } = await supabase
+            .from('orders')
+            .update({ status: 'shipped' })
+            .eq('id', orderId);
+         if (updateOrderError) {
+            console.error("Supabase update order status error (shipped):", updateOrderError.message);
+            throw new Error(updateOrderError.message);
          }
     }
 };
 
-export const toggleRunManStatus = async (userId: number, isOnline: boolean) => {
-    await executeRun(
-        "UPDATE run_man_profiles SET is_online = ? WHERE user_id = ?",
-        [isOnline ? 1 : 0, userId]
-    );
+export const toggleRunManStatus = async (userId: string, isOnline: boolean) => {
+    const { error } = await supabase
+        .from('run_man_profiles')
+        .update({ is_online: isOnline ? 1 : 0 })
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error("Supabase toggle run man status error:", error.message);
+        throw new Error(error.message);
+    }
 };
 
-export const withdrawEarnings = async (userId: number) => {
+export const withdrawEarnings = async (userId: string) => {
     // Reset wallet to 0
-    await executeRun(
-        "UPDATE run_man_profiles SET wallet_balance = 0 WHERE user_id = ?",
-        [userId]
-    );
+    const { error } = await supabase
+        .from('run_man_profiles')
+        .update({ wallet_balance: 0 })
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error("Supabase withdraw earnings error:", error.message);
+        throw new Error(error.message);
+    }
 };
 
 export const getAllProducts = async (): Promise<Product[]> => {
-    // JOIN with storefronts to get the artisan name
-    const sql = `
-        SELECT p.*, s.name as store_name 
-        FROM products p
-        LEFT JOIN storefronts s ON p.storefront_id = s.id
-    `;
-    const rows = await executeQuery(sql);
-    return rows as Product[];
-}
+    const { data, error } = await supabase
+        .from('products')
+        .select(`
+            *,
+            storefronts (name)
+        `);
+
+    if (error) {
+        console.error("Supabase get all products error:", error.message);
+        throw new Error(error.message);
+    }
+    
+    return data.map(p => ({
+        ...p,
+        store_name: (p as any).storefronts ? (p as any).storefronts.name : null
+    })) as Product[];
+};
 
 export const addProduct = async (storeId: number, name: string, description: string, price: number, category: string): Promise<Product> => {
-    await executeRun(
-        "INSERT INTO products (storefront_id, name, description, price, category, image_url, stock_status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [storeId, name, description, price, category, '', 'in_stock']
-    );
+    const { data, error } = await supabase
+        .from('products')
+        .insert({
+            storefront_id: storeId,
+            name: name,
+            description: description,
+            price: price,
+            category: category,
+            image_url: '', // Default empty
+            stock_status: 'in_stock' // Default
+        })
+        .select(`
+            *,
+            storefronts (name)
+        `)
+        .single();
+
+    if (error) {
+        console.error("Supabase add product error:", error.message);
+        throw new Error(error.message);
+    }
     
-    // Fetch back the last inserted
-    const res = await executeQuery("SELECT * FROM products WHERE storefront_id = ? AND name = ? ORDER BY id DESC LIMIT 1", [storeId, name]);
-    return res[0] as Product;
+    return {
+        ...data,
+        store_name: (data as any).storefronts ? (data as any).storefronts.name : null
+    } as Product;
 };
 
 export const deleteProduct = async (productId: number) => {
-    await executeRun("DELETE FROM products WHERE id = ?", [productId]);
+    const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+    if (error) {
+        console.error("Supabase delete product error:", error.message);
+        throw new Error(error.message);
+    }
 };
 
 // --- CHECKOUT & ORDER LOGIC ---
 
 export const createOrder = async (
-    userId: number, 
+    userId: string, 
     cart: CartItem[], 
     total: number, 
     paymentMethod: PaymentMethod, 
@@ -337,93 +603,216 @@ export const createOrder = async (
     const createdAt = new Date().toISOString();
     
     // 1. Insert Order
-    await executeRun(
-        "INSERT INTO orders (user_id, total_amount, status, payment_method, shipping_address, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        [userId, total, 'pending', paymentMethod, shippingAddress, createdAt]
-    );
+    const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+            user_id: userId,
+            total_amount: total,
+            status: 'pending',
+            payment_method: paymentMethod,
+            shipping_address: shippingAddress,
+            created_at: createdAt
+        })
+        .select('*')
+        .single();
 
-    // 2. Get the new Order ID (Assuming single user concurrency for local DB, sorting by created desc is safe enough)
-    const orderRes = await executeQuery("SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT 1", [userId]);
-    const order = orderRes[0] as Order;
-
-    // 3. Insert Order Items
-    for (const item of cart) {
-        await executeRun(
-            "INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) VALUES (?, ?, ?, ?)",
-            [order.id, item.id, item.quantity, item.price]
-        );
+    if (orderError || !orderData) {
+        console.error("Supabase create order error:", orderError?.message);
+        throw new Error(orderError?.message || "Failed to create order.");
     }
 
-    return order;
+    // 2. Insert Order Items
+    const orderItemsToInsert = cart.map(item => ({
+        order_id: orderData.id,
+        product_id: item.id,
+        quantity: item.quantity,
+        price_at_purchase: item.price
+    }));
+
+    const { error: orderItemsError } = await supabase
+        .from('order_items')
+        .insert(orderItemsToInsert);
+
+    if (orderItemsError) {
+        console.error("Supabase insert order items error:", orderItemsError.message);
+        throw new Error(orderItemsError.message);
+    }
+
+    return orderData as Order;
 };
 
 
 export const searchProducts = async (query: string, category?: string): Promise<Product[]> => {
-    let sql = `
-        SELECT p.*, s.name as store_name 
-        FROM products p 
-        LEFT JOIN storefronts s ON p.storefront_id = s.id
-        WHERE (LOWER(p.name) LIKE ? OR LOWER(p.description) LIKE ? OR LOWER(p.category) LIKE ?)
-    `;
-    const wildcard = `%${query.toLowerCase()}%`;
-    const params = [wildcard, wildcard, wildcard];
+    let queryBuilder = supabase
+        .from('products')
+        .select(`
+            *,
+            storefronts (name)
+        `);
+
+    const searchTerm = `%${query.toLowerCase()}%`;
+
+    queryBuilder = queryBuilder.or(`name.ilike.${searchTerm},description.ilike.${searchTerm},category.ilike.${searchTerm}`);
 
     if (category) {
-        sql += " AND LOWER(p.category) = ?";
-        params.push(category.toLowerCase());
+        queryBuilder = queryBuilder.eq('category', category);
     }
 
-    const rows = await executeQuery(sql, params);
-    return rows as Product[];
+    const { data, error } = await queryBuilder;
+
+    if (error) {
+        console.error("Supabase search products error:", error.message);
+        throw new Error(error.message);
+    }
+    
+    return (data || []).map(p => ({
+        ...p,
+        store_name: (p as any).storefronts ? (p as any).storefronts.name : null
+    })) as Product[];
 };
 
 // --- Storefront Methods ---
 
 export const getAllStorefronts = async (): Promise<Storefront[]> => {
-    const rows = await executeQuery("SELECT * FROM storefronts");
-    return rows as Storefront[];
-}
+    const { data, error } = await supabase
+        .from('storefronts')
+        .select('*');
+
+    if (error) {
+        console.error("Supabase get all storefronts error:", error.message);
+        throw new Error(error.message);
+    }
+    
+    return data as Storefront[];
+};
 
 export const getStorefrontDetails = async (id: number): Promise<{ store: Storefront | null, products: Product[] }> => {
-    const storeRes = await executeQuery("SELECT * FROM storefronts WHERE id = ?", [id]);
-    if (storeRes.length === 0) {
+    const { data: store, error: storeError } = await supabase
+        .from('storefronts')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (storeError || !store) {
+        console.error("Supabase get storefront details error:", storeError?.message);
         return { store: null, products: [] };
     }
     
-    const productsRes = await executeQuery(`
-        SELECT p.*, s.name as store_name 
-        FROM products p
-        LEFT JOIN storefronts s ON p.storefront_id = s.id
-        WHERE p.storefront_id = ?
-    `, [id]);
+    const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select(`
+            *,
+            storefronts (name)
+        `)
+        .eq('storefront_id', id);
+
+    if (productsError) {
+        console.error("Supabase get storefront products error:", productsError.message);
+    }
 
     return {
-        store: storeRes[0] as Storefront,
-        products: productsRes as Product[]
+        store: store as Storefront,
+        products: (products || []).map(p => ({
+            ...p,
+            store_name: (p as any).storefronts ? (p as any).storefronts.name : null
+        })) as Product[]
     };
-}
+};
 
-export const createConversationSession = async (userId: number | null): Promise<string | null> => {
-  return "session-" + Math.random().toString(36).substr(2, 9);
+export const createConversationSession = async (userId: string | null): Promise<string | null> => {
+    // Generate a unique session ID
+    const newSessionId = "session-" + Math.random().toString(36).substr(2, 9);
+
+    const { data, error } = await supabase
+        .from('conversation_sessions')
+        .insert({
+            session_id: newSessionId,
+            user_id: userId,
+            start_time: new Date().toISOString(),
+            total_messages: 0,
+            last_active: new Date().toISOString()
+        })
+        .select('session_id')
+        .single();
+
+    if (error) {
+        console.error("Supabase create conversation session error:", error.message);
+        throw new Error(error.message);
+    }
+    
+    return data?.session_id || null;
 };
 
 export const saveChatMessage = async (
   sessionId: string, 
-  userId: number | null, 
+  userId: string | null, 
   sender: 'user' | 'model', 
   content: string
 ) => {
-  // Can expand to store chat history in SQLite 'messages' table if needed
+    const { error } = await supabase
+        .from('conversation_messages')
+        .insert({
+            session_id: sessionId,
+            user_id: userId,
+            sender: sender,
+            message_content: content,
+            timestamp: new Date().toISOString()
+        });
+
+    if (error) {
+        console.error("Supabase save chat message error:", error.message);
+        throw new Error(error.message);
+    }
+
+    // Optionally update conversation_sessions.total_messages and last_active
+    const { error: updateSessionError } = await supabase
+        .from('conversation_sessions')
+        .update({
+            total_messages: (cs: any) => cs.total_messages + 1,
+            last_active: new Date().toISOString()
+        })
+        .eq('session_id', sessionId);
+    
+    if (updateSessionError) {
+        console.error("Supabase update conversation session error:", updateSessionError.message);
+        throw new Error(updateSessionError.message);
+    }
 };
 
 // Helper to Toggle Wishlist in DB
-export const updateWishlistInDb = async (userId: number, productId: number, remove: boolean) => {
+export const updateWishlistInDb = async (userId: string, productId: number, remove: boolean) => {
     if (remove) {
-        await executeRun("DELETE FROM wishlist WHERE user_id = ? AND product_id = ?", [userId, productId]);
+        const { error } = await supabase
+            .from('wishlist')
+            .delete()
+            .eq('user_id', userId)
+            .eq('product_id', productId);
+        
+        if (error) {
+            console.error("Supabase delete wishlist item error:", error.message);
+            throw new Error(error.message);
+        }
     } else {
-        const exists = await executeQuery("SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?", [userId, productId]);
-        if (exists.length === 0) {
-            await executeRun("INSERT INTO wishlist (user_id, product_id, added_at) VALUES (?, ?, ?)", [userId, productId, new Date().toISOString()]);
+        const { data: exists, error: existsError } = await supabase
+            .from('wishlist')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('product_id', productId);
+        
+        if (existsError) {
+            console.error("Supabase check wishlist item exists error:", existsError.message);
+            throw new Error(existsError.message);
+        }
+
+        if (!exists || exists.length === 0) {
+            const { error } = await supabase
+                .from('wishlist')
+                .insert({ user_id: userId, product_id: productId, added_at: new Date().toISOString() });
+            
+            if (error) {
+                console.error("Supabase insert wishlist item error:", error.message);
+                throw new Error(error.message);
+            }
         }
     }
 };

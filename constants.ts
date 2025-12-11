@@ -50,4 +50,4 @@ You have access to a product catalog tool called **\`searchProducts\`**.
 
 `;
 
-export const MOCK_USER_ID = 1;
+export const MOCK_USER_ID = "1";

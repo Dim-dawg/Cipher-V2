@@ -6,7 +6,7 @@ import { RunManContext, Delivery } from '../types';
 import { Loader2, Bike, Navigation, CheckCircle, Package, RefreshCw, Power, DollarSign, Wallet, PenTool, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface RunManDashboardProps {
-  userId: number;
+  userId: string;
   onLogout: () => void;
 }
 

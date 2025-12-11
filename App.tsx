@@ -57,7 +57,7 @@ const App: React.FC = () => {
     setContext(prev => {
         const wishlistItems: WishlistItem[] = wishlistIds.map(id => ({
             id: Math.random(),
-            user_id: prev.profile?.id || 0,
+            user_id: prev.profile?.id || '',
             product_id: id,
             added_at: new Date().toISOString()
         }));
@@ -69,7 +69,7 @@ const App: React.FC = () => {
     });
   }, [wishlistIds]);
 
-  const refreshSystemState = async (userId: number | null) => {
+  const refreshSystemState = async (userId: string | null) => {
     try {
         const customerContext = await fetchCustomerContext(userId);
         setContext(customerContext);
@@ -110,7 +110,7 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (email: string, password?: string, role: 'customer' | 'owner' | 'run_man' = 'customer'): Promise<boolean> => {
-    const user = await loginUser(email, password, role);
+    const user = await loginUser(email, password);
     if (user) {
         await refreshSystemState(user.id);
         return true;

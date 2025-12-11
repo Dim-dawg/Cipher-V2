@@ -6,7 +6,7 @@ import { VendorContext, Product, Order, Delivery } from '../types';
 import { Plus, Trash2, Package, ShoppingBag, Store, LogOut, Loader2, Sparkles, ExternalLink, Truck, Bike, MapPin, CheckSquare } from 'lucide-react';
 
 interface VendorDashboardProps {
-  userId: number;
+  userId: string;
   onLogout: () => void;
   onPreviewStore: () => void;
 }
