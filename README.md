@@ -60,4 +60,19 @@ The application automatically initializes the SQLite database on first load. It 
 
 ---
 
+## ✅ Todo
+
+- [ ] Implement robust error handling for API calls.
+- [ ] Add more comprehensive unit and integration tests.
+- [ ] Explore implementing a product detail page.
+- [ ] Refine AI chatbot's ability to browse and understand website context (using the scraping function).
+- [ ] Implement user authentication with a real backend (e.g., Supabase, Firebase).
+- [ ] Enhance UI/UX, add animations and transitions.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
 **© 2024 Sneak Peek. Rooted in Tradition. Elevated for the World.**
