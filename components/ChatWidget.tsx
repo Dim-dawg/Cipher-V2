@@ -5,7 +5,7 @@ import { Chat, GenerateContentResponse, Content } from "@google/genai";
 import ChatMessage from './ChatMessage';
 import { createConversationSession, saveChatMessage } from '../services/supabaseService';
 import { createChatSession, sendMessageStream, LiveClient } from '../services/geminiService';
-import { CustomerContext, Product, VendorContext } from '../types';
+import { CustomerContext, Product, VendorContext, CartItem, Storefront } from '../types';
 import { MOCK_USER_ID } from '../constants';
 
 interface ChatWidgetProps {
@@ -20,6 +20,7 @@ interface ChatWidgetProps {
   currentWishlistIds?: number[];
   currentlyDisplayedProducts?: Product[]; 
   currentSelectedStore?: Storefront | null;
+}
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({ 
   context, 

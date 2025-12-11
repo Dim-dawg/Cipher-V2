@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Chat, GenerateContentResponse, FunctionDeclaration, Type, Content, LiveServerMessage, Modality, Blob } from "@google/genai";
 import { CIPHER_SYSTEM_PROMPT } from "../constants";
-import { CustomerContext, Product, VendorContext } from "../types";
+import { CustomerContext, Product, VendorContext, CartItem, Storefront } from "../types";
 import { searchProducts } from "./supabaseService";
 
 let aiClient: GoogleGenAI | null = null;
@@ -131,10 +131,12 @@ export const createChatSession = (
         systemInstruction: personalizedPrompt,
         temperature: 0.7,
         topK: 40,
-        topP: 0.95,
-      },
-      tools: [searchProductsTool],
-      history: history || []
+                topP: 0.95,
+                tools: [{
+                  functionDeclarations: [searchProductsTool]
+                }],
+              },
+              history: history || []
     });
   } catch (error) {
     console.error("Failed to create chat session", error);

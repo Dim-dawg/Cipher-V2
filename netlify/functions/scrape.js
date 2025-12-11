@@ -1,6 +1,6 @@
 // netlify/functions/scrape.js
 const chromium = require('chrome-aws-lambda'); // Or puppeteer-core
-const playwright = require('playwright-chromium'); // Or puppeteer-core
+const playwright = require('playwright'); // Or puppeteer-core
 
 exports.handler = async (event, context) => {
   // Only allow POST requests
