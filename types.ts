@@ -1,7 +1,7 @@
 
 
 export interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: 'customer' | 'owner' | 'run_man';
@@ -9,7 +9,7 @@ export interface User {
 
 export interface Address {
   id: number;
-  user_id: number;
+  user_id: string;
   label: string | null;
   address_line: string;
   city: string;
@@ -22,7 +22,7 @@ export type PaymentMethod = 'credit_card' | 'bank_transfer' | 'cod';
 
 export interface Order {
   id: number;
-  user_id: number;
+  user_id: string;
   total_amount: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   payment_method: PaymentMethod;
@@ -47,7 +47,7 @@ export interface Storefront {
   logo_url: string;
   location: string;
   owner_name: string;
-  owner_id?: number; // Linked User ID
+  owner_id?: string; // Linked User ID
   founded_year: number;
   tags: string; // Stored as pipe-separated string "Tag1|Tag2"
 }
@@ -75,14 +75,14 @@ export interface ProductVariant {
 
 export interface WishlistItem {
   id: number;
-  user_id: number;
+  user_id: string;
   product_id: number;
   added_at: string;
 }
 
 export interface Review {
   id: number;
-  user_id: number;
+  user_id: string;
   product_id: number;
   rating: number;
   comment: string;
@@ -92,7 +92,7 @@ export interface Review {
 // --- Run Man / Logistics Types ---
 
 export interface RunManProfile {
-  user_id: number;
+  user_id: string;
   vehicle_type: 'motorcycle' | 'car' | 'van' | 'bicycle';
   vehicle_plate: string;
   phone: string;
