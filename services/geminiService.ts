@@ -50,9 +50,14 @@ const executeTool = async (name: string, args: any): Promise<any> => {
 
 export const createChatSession = (
   context: CustomerContext, 
-  products: Product[],
+  allProducts: Product[],
   history?: Content[],
-  vendorContext?: VendorContext | null
+  vendorContext?: VendorContext | null,
+  currentView?: string,
+  currentCartItems?: CartItem[],
+  currentWishlistIds?: number[],
+  currentlyDisplayedProducts?: Product[],
+  currentSelectedStore?: Storefront | null
 ): Chat | null => {
   if (!aiClient) return null;
 
@@ -60,8 +65,8 @@ export const createChatSession = (
   let personalizedPrompt = CIPHER_SYSTEM_PROMPT;
 
   // 1. INJECT PRODUCT CATALOG SUMMARY
-  if (products && products.length > 0) {
-    const catalogSummary = products.map(p => `- ${p.name} ($${p.price.toFixed(2)}) [${p.category}]`).join('\n');
+  if (allProducts && allProducts.length > 0) {
+    const catalogSummary = allProducts.map(p => `- ${p.name} ($${p.price.toFixed(2)}) [${p.category}]`).join('\n');
     personalizedPrompt += `\n\n## STORE CATALOG SUMMARY (Known Inventory)\n${catalogSummary}\n\nUse the list above to be "aware" of what we sell.`;
   }
 
@@ -88,6 +93,34 @@ export const createChatSession = (
   } else {
     personalizedPrompt += `\n\n## CURRENT USER CONTEXT\nGuest User (Not logged in)`;
   }
+
+  // 4. INJECT CURRENT WEBSITE CONTEXT
+  personalizedPrompt += `\n\n## CURRENT WEBSITE CONTEXT\n`;
+  personalizedPrompt += `User is currently on the: ${currentView || 'unknown'} page.\n`;
+
+  if (currentSelectedStore) {
+    personalizedPrompt += `Viewing Store: ${currentSelectedStore.name} (${currentSelectedStore.location})\n`;
+    personalizedPrompt += `Store Description: ${currentSelectedStore.description}\n`;
+  }
+
+  if (currentlyDisplayedProducts && currentlyDisplayedProducts.length > 0) {
+    personalizedPrompt += `Products currently displayed: \n`;
+    currentlyDisplayedProducts.forEach(p => {
+      personalizedPrompt += `- ${p.name} ($${p.price.toFixed(2)}) [ID: ${p.id}]\n`;
+    });
+  }
+
+  if (currentCartItems && currentCartItems.length > 0) {
+    personalizedPrompt += `Items in user's cart: \n`;
+    currentCartItems.forEach(item => {
+      personalizedPrompt += `- ${item.name} (Qty: ${item.quantity}) ($${item.price.toFixed(2)} each)\n`;
+    });
+  }
+
+  if (currentWishlistIds && currentWishlistIds.length > 0) {
+    personalizedPrompt += `User has ${currentWishlistIds.length} items in their wishlist.\n`;
+  }
+
 
 
 
@@ -262,7 +295,15 @@ export class LiveClient {
     }
   ) {}
 
-  public async start(context: CustomerContext, products: Product[]) {
+  public async start(
+    context: CustomerContext, 
+    allProducts: Product[],
+    currentView?: string,
+    currentCartItems?: CartItem[],
+    currentWishlistIds?: number[],
+    currentlyDisplayedProducts?: Product[],
+    currentSelectedStore?: Storefront | null
+  ) {
     if (!aiClient) return;
 
     try {
@@ -286,9 +327,30 @@ export class LiveClient {
       if (context.profile) {
         systemInstruction += `\nUser: ${context.profile.username}. Location: ${context.addresses[0]?.city || 'Belize'}.`;
       }
-      if (products.length > 0) {
-        systemInstruction += `\nCatalog Summary: ${products.slice(0, 50).map(p => p.name).join(', ')}... (and more).`;
+      if (allProducts.length > 0) {
+        systemInstruction += `\nCatalog Summary: ${allProducts.slice(0, 50).map(p => p.name).join(', ')}... (and more).`;
       }
+
+      // 4. INJECT CURRENT WEBSITE CONTEXT (Simplified for Audio)
+      systemInstruction += `\n\n## CURRENT WEBSITE CONTEXT\n`;
+      systemInstruction += `User is currently on the: ${currentView || 'unknown'} page.\n`;
+
+      if (currentSelectedStore) {
+        systemInstruction += `Viewing Store: ${currentSelectedStore.name}\n`;
+      }
+
+      if (currentlyDisplayedProducts && currentlyDisplayedProducts.length > 0) {
+        systemInstruction += `Products displayed: ${currentlyDisplayedProducts.map(p => p.name).join(', ')}.\n`;
+      }
+
+      if (currentCartItems && currentCartItems.length > 0) {
+        systemInstruction += `Items in cart: ${currentCartItems.length}.\n`;
+      }
+
+      if (currentWishlistIds && currentWishlistIds.length > 0) {
+        systemInstruction += `Items in wishlist: ${currentWishlistIds.length}.\n`;
+      }
+
 
       this.sessionPromise = aiClient.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',

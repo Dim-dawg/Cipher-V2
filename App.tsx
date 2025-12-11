@@ -711,9 +711,17 @@ const App: React.FC = () => {
             context={context} 
             vendorContext={vendorContext}
             isConnected={true} 
-            products={products}
-            currentView={view as any}
+            allProducts={products} 
+            currentView={view}
 
+            currentCartItems={view === 'cart' ? cart : undefined}
+            currentWishlistIds={view === 'wishlist' ? wishlistIds : undefined}
+            currentlyDisplayedProducts={
+              view === 'shop' ? products :
+              view === 'store_profile' ? storeProducts :
+              undefined
+            }
+            currentSelectedStore={view === 'store_profile' ? selectedStore : undefined}
         />
       )}
 

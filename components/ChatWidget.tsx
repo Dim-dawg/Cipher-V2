@@ -12,11 +12,28 @@ interface ChatWidgetProps {
   context: CustomerContext;
   vendorContext?: VendorContext | null;
   isConnected: boolean;
-  products: Product[];
-  currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'vendor_dashboard';
+  allProducts: Product[]; 
+  currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'vendor_dashboard' | 'store_profile' | 'artisans';
+  
+  // New props for website awareness
+  currentCartItems?: CartItem[];
+  currentWishlistIds?: number[];
+  currentlyDisplayedProducts?: Product[]; 
+  currentSelectedStore?: Storefront | null;
+}
 }
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConnected, products, currentView }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = ({ 
+  context, 
+  vendorContext, 
+  isConnected, 
+  allProducts, 
+  currentView,
+  currentCartItems,
+  currentWishlistIds,
+  currentlyDisplayedProducts,
+  currentSelectedStore
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Initialize messages from Local Storage
@@ -75,10 +92,10 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConne
 
   // Re-initialize chat when context, products, or financial config changes
   useEffect(() => {
-    if (context && products.length > 0) {
+    if (context && allProducts.length > 0) {
       initChat();
     }
-  }, [context, vendorContext, products]);
+  }, [context, vendorContext, allProducts]);
 
   // Cleanup Voice on unmount or close
   useEffect(() => {
@@ -206,7 +223,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConne
       parts: [{ text: msg.content }]
     }));
 
-    const chat = createChatSession(context, products, history, vendorContext);
+    const chat = createChatSession(context, allProducts, history, vendorContext);
     setChatSession(chat);
 
     if (messages.length === 0) {
@@ -306,7 +323,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ context, vendorContext, isConne
       });
       
       liveClientRef.current = client;
-      await client.start(context, products);
+      await client.start(
+        context, 
+        allProducts, 
+        currentView,
+        currentCartItems,
+        currentWishlistIds,
+        currentlyDisplayedProducts,
+        currentSelectedStore
+      );
   };
 
   const endVoiceCall = () => {
