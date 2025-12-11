@@ -100,6 +100,7 @@ export const createChatSession = (
         topK: 40,
         topP: 0.95,
       },
+      tools: [searchProductsTool],
       history: history || []
     });
   } catch (error) {
