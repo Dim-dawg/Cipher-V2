@@ -1,14 +1,11 @@
-
-
 import React, { useState } from 'react';
 import { ShoppingCart, Menu, UserCircle, X, Home, ShoppingBag, Settings, Heart, Store, LayoutDashboard, Bike, DollarSign } from 'lucide-react';
-import { CustomerContext } from '../types';
 
 interface NavbarProps {
   onNavigate: (view: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'vendor_dashboard' | 'run_man_dashboard') => void;
   cartCount: number;
-  currentView: 'home' | 'shop' | 'cart' | 'wishlist' | 'artisans' | 'store_profile' | 'vendor_dashboard' | 'run_man_dashboard';
-  context: CustomerContext;
+  currentView: string;
+  context: any; // Simplified context
   onSignIn: () => void;
   onSignOut: () => void;
 }
@@ -23,8 +20,11 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // If Run Man, simplify navbar significantly
-  if (context.profile?.role === 'run_man') {
+  // Simplified logic, as we don't have roles anymore in the same way
+  const isRunMan = context.profile?.roles?.includes('run_man');
+  const isOwner = context.profile?.roles?.includes('owner');
+
+  if (isRunMan) {
       return (
           <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-30 px-6 py-4 shadow-sm text-white">
               <div className="flex items-center justify-between">
@@ -42,12 +42,10 @@ const Navbar: React.FC<NavbarProps> = ({
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between">
         
-        {/* Mobile Menu Button */}
         <button className="lg:hidden text-gray-600" onClick={() => setIsMenuOpen(!isMenuOpen)}>
            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Logo (Mobile Only) */}
         <div className="lg:hidden flex items-center gap-2" onClick={() => onNavigate('home')}>
              <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm">
                <svg viewBox="0 0 100 100" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -67,7 +65,6 @@ const Navbar: React.FC<NavbarProps> = ({
              <span className="font-serif font-bold text-gray-900">Sneak Peek</span>
         </div>
 
-        {/* Desktop Nav Links */}
         <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-gray-600">
             <button 
                 onClick={() => onNavigate('home')} 
@@ -88,8 +85,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 <Store size={16} /> Artisans
             </button>
             
-            {/* Vendor Link */}
-            {context.profile?.role === 'owner' && (
+            {isOwner && (
                 <button 
                     onClick={() => onNavigate('vendor_dashboard')} 
                     className={`hover:text-belize-teal transition-colors flex items-center gap-1 ${currentView === 'vendor_dashboard' ? 'text-belize-teal font-bold' : ''}`}
@@ -99,9 +95,7 @@ const Navbar: React.FC<NavbarProps> = ({
             )}
         </div>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* Wishlist Mobile/Desktop */}
           <button 
              onClick={() => onNavigate('wishlist')}
              className={`p-2 transition-colors ${currentView === 'wishlist' ? 'text-belize-coral fill-current' : 'text-gray-400 hover:text-belize-coral'}`}
@@ -109,7 +103,6 @@ const Navbar: React.FC<NavbarProps> = ({
              <Heart size={20} className={currentView === 'wishlist' ? 'fill-current' : ''} />
           </button>
 
-          {/* Cart */}
           <button 
              onClick={() => onNavigate('cart')}
              className={`relative p-2 transition-colors ${currentView === 'cart' ? 'text-belize-teal' : 'text-gray-400 hover:text-belize-teal'}`}
@@ -122,13 +115,12 @@ const Navbar: React.FC<NavbarProps> = ({
              )}
           </button>
 
-          {/* User Auth */}
           <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
           
           {context.profile ? (
              <div className="hidden sm:flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">{context.profile.username}</span>
-                {context.profile.role === 'owner' && <span className="text-[10px] bg-belize-teal text-white px-1.5 py-0.5 rounded-sm uppercase font-bold tracking-wider">Owner</span>}
+                {isOwner && <span className="text-[10px] bg-belize-teal text-white px-1.5 py-0.5 rounded-sm uppercase font-bold tracking-wider">Owner</span>}
                 <button onClick={onSignOut} className="text-xs text-red-400 hover:text-red-500 font-medium ml-1">Sign Out</button>
              </div>
           ) : (
@@ -142,13 +134,12 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
       
-      {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
         <div className="mt-4 border-t border-gray-100 pt-4 space-y-2 lg:hidden">
             <button onClick={() => { onNavigate('home'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Home</button>
             <button onClick={() => { onNavigate('shop'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Shop</button>
             <button onClick={() => { onNavigate('artisans'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 rounded">Artisans</button>
-            {context.profile?.role === 'owner' && (
+            {isOwner && (
                  <button onClick={() => { onNavigate('vendor_dashboard'); setIsMenuOpen(false); }} className="block w-full text-left px-2 py-2 font-bold text-belize-teal hover:bg-gray-50 rounded">My Dashboard</button>
             )}
             {!context.profile && (

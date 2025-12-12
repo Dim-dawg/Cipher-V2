@@ -1,19 +1,31 @@
-
-
 import React, { useState, useEffect } from 'react';
-import { fetchVendorContext, addProduct, deleteProduct, requestDelivery } from '../services/supabaseService';
-import { VendorContext, Product, Order, Delivery } from '../types';
 import { Plus, Trash2, Package, ShoppingBag, Store, LogOut, Loader2, Sparkles, ExternalLink, Truck, Bike, MapPin, CheckSquare } from 'lucide-react';
 
 interface VendorDashboardProps {
-  userId: string;
   onLogout: () => void;
   onPreviewStore: () => void;
 }
 
-const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onPreviewStore }) => {
-  const [context, setContext] = useState<VendorContext | null>(null);
-  const [loading, setLoading] = useState(true);
+// --- Static Placeholder Data ---
+const placeholderContext = {
+    store: { id: 1, name: 'The Belizean Artistry', description: 'Handcrafted wooden goods from the heart of the jungle.' },
+    products: [
+        { id: 1, name: 'Hand-carved Mahogany Bowl', description: 'A beautiful bowl made from local mahogany wood.', price: 120.00, category: 'Home' },
+        { id: 2, name: 'Marie Sharp\'s Hot Sauce', description: 'The classic fiery habanero hot sauce from Belize.', price: 8.50, category: 'Food' },
+    ],
+    orders: [
+        { id: 101, created_at: new Date().toISOString(), user_id: '1', total_amount: 128.50, shipping_address: '123 Coconut Drive, San Pedro' },
+    ],
+    totalSales: 128.50,
+    deliveries: [
+        { id: 1, order_id: 101, status: 'delivered', proof_of_delivery: 'John Hancock' }
+    ],
+};
+
+
+const VendorDashboard: React.FC<VendorDashboardProps> = ({ onLogout, onPreviewStore }) => {
+  const [context, setContext] = useState<any>(placeholderContext);
+  const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   
   // New Product Form State
@@ -22,59 +34,26 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
   const [newPrice, setNewPrice] = useState('');
   const [newCategory, setNewCategory] = useState('Home & Living');
 
-  const loadData = async () => {
-    setLoading(true);
-    const data = await fetchVendorContext(userId);
-    setContext(data);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [userId]);
-
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!context || !context.store) return;
-    
-    await addProduct(
-        context.store.id, 
-        newName, 
-        newDesc, 
-        parseFloat(newPrice), 
-        newCategory
-    );
-    
-    // Reset and reload
-    setNewName('');
-    setNewDesc('');
-    setNewPrice('');
+    console.log("Adding product (database functionality removed).", { newName, newDesc, newPrice, newCategory });
     setIsAdding(false);
-    loadData();
   };
 
   const handleDelete = async (productId: number) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-        await deleteProduct(productId);
-        loadData();
-    }
+    console.log(`Deleting product ${productId} (database functionality removed).`);
   };
 
-  const handleRequestRunMan = async (order: Order) => {
-      if (!context?.store) return;
-      if (confirm(`Request a Run Man for Order #${order.id}?`)) {
-          // Pickup is Store Location, Dropoff is User Shipping Address
-          await requestDelivery(order.id, context.store.location, order.shipping_address);
-          loadData();
-      }
+  const handleRequestRunMan = async (order: any) => {
+      console.log(`Requesting Run Man for order ${order.id} (database functionality removed).`);
   };
 
   const getDeliveryStatus = (orderId: number) => {
       if (!context?.deliveries) return null;
-      return context.deliveries.find(d => d.order_id === orderId);
+      return context.deliveries.find((d: any) => d.order_id === orderId);
   };
 
-  const renderDeliveryBadge = (delivery: Delivery) => {
+  const renderDeliveryBadge = (delivery: any) => {
       switch(delivery.status) {
           case 'searching': return <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full animate-pulse">Searching for Driver...</span>;
           case 'assigned': return <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold">Driver Assigned</span>;
@@ -106,7 +85,6 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
 
   return (
     <div className="bg-gray-50 flex flex-col font-sans min-h-screen">
-      {/* Internal Dashboard Header (Nav is above this now) */}
       <div className="bg-gray-900 text-white px-8 py-6 shadow-md">
          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4">
@@ -160,7 +138,6 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
             </div>
          </div>
 
-         {/* --- ORDERS & LOGISTICS SECTION --- */}
          <div className="mb-10">
              <h2 className="text-2xl font-bold text-gray-900 mb-4">Active Orders</h2>
              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -178,7 +155,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
                          {context.orders.length === 0 ? (
                              <tr><td colSpan={5} className="p-8 text-center text-gray-500">No orders yet.</td></tr>
                          ) : (
-                             context.orders.map(order => {
+                             context.orders.map((order: any) => {
                                  const delivery = getDeliveryStatus(order.id);
                                  return (
                                      <tr key={order.id} className="hover:bg-gray-50">
@@ -227,7 +204,6 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
             </button>
          </div>
 
-         {/* Add Product Form */}
          {isAdding && (
              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-8 animate-in slide-in-from-top-4">
                  <h3 className="font-bold text-gray-800 mb-4">Add New Item</h3>
@@ -261,7 +237,6 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
              </div>
          )}
 
-         {/* Product List */}
          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
              <table className="w-full text-left border-collapse">
                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-xs">
@@ -276,7 +251,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ userId, onLogout, onP
                      {context.products.length === 0 ? (
                          <tr><td colSpan={4} className="p-8 text-center text-gray-500">No products found. Add your first item!</td></tr>
                      ) : (
-                         context.products.map(p => (
+                         context.products.map((p: any) => (
                              <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                  <td className="p-4">
                                      <div className="font-bold text-gray-900">{p.name}</div>

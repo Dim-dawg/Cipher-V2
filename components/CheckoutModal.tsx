@@ -1,20 +1,19 @@
-
 import React, { useState } from 'react';
 import { X, CreditCard, Banknote, Truck, MapPin, CheckCircle, Loader2, Info } from 'lucide-react';
-import { PaymentMethod, User } from '../types';
+
+// Locally defined type to avoid dependency on types.ts
+type PaymentMethod = 'credit_card' | 'bank_transfer' | 'cod';
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   subtotal: number;
   total: number;
-  user: User | null;
-  onConfirmOrder: (address: string, paymentMethod: PaymentMethod) => Promise<void>;
 }
 
 const DISTRICTS = ["Belize", "Cayo", "Corozal", "Orange Walk", "Stann Creek", "Toledo", "San Pedro (Ambergris Caye)"];
 
-const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, subtotal, total, user, onConfirmOrder }) => {
+const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, subtotal, total }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   
@@ -38,9 +37,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, subtotal
   const handleSubmit = async () => {
     setLoading(true);
     const fullAddress = `${address}, ${city}, ${district}`;
-    await onConfirmOrder(fullAddress, paymentMethod);
-    setLoading(false);
-    setStep(3); // Success step
+    console.log("Order submitted (database functionality removed).", { fullAddress, paymentMethod });
+    
+    // Simulate a successful operation
+    setTimeout(() => {
+        setLoading(false);
+        setStep(3); // Success step
+    }, 1000);
   };
 
   return (

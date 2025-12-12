@@ -1,90 +1,71 @@
-
-
 import React, { useState, useEffect } from 'react';
-import { fetchRunManContext, acceptDelivery, updateDeliveryStatus, toggleRunManStatus, withdrawEarnings } from '../services/supabaseService';
-import { RunManContext, Delivery } from '../types';
 import { Loader2, Bike, Navigation, CheckCircle, Package, RefreshCw, Power, DollarSign, Wallet, PenTool, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface RunManDashboardProps {
-  userId: string;
   onLogout: () => void;
 }
 
-const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) => {
-  const [context, setContext] = useState<RunManContext | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'available' | 'active' | 'wallet'>('available');
+// --- Static Placeholder Data ---
+const placeholderContext = {
+    profile: { id: '1', username: 'Speedy Runner', email: 'runman@example.com' },
+    runManProfile: {
+        user_id: '1',
+        vehicle_type: 'motorcycle',
+        vehicle_plate: 'MC-1234',
+        phone: '555-1234',
+        status: 'active',
+        is_online: true,
+        wallet_balance: 125.50,
+    },
+    activeDelivery: {
+        id: 101,
+        order_id: 202,
+        status: 'picked_up',
+        pickup_location: 'The Belizean Artistry, San Ignacio, Cayo',
+        dropoff_location: '123 Coconut Drive, San Pedro, Belize',
+        earnings: 12.50,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    },
+    availableDeliveries: [
+        { id: 102, order_id: 203, status: 'searching', pickup_location: 'Marie Sharp\'s Factory, Dangriga', dropoff_location: '456 Iguana St, Belize City', earnings: 15.00, created_at: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    ],
+    completedDeliveries: [
+        { id: 100, order_id: 201, earnings: 10.00, updated_at: new Date().toISOString() },
+    ]
+};
+
+
+const RunManDashboard: React.FC<RunManDashboardProps> = ({ onLogout }) => {
+  const [context, setContext] = useState<any>(placeholderContext);
+  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<'available' | 'active' | 'wallet'>('active');
   const [refreshing, setRefreshing] = useState(false);
   const [signature, setSignature] = useState('');
 
-  const loadData = async () => {
-    const data = await fetchRunManContext(userId);
-    setContext(data);
-    
-    // Auto-switch to active tab if there is an active job, unless we are on wallet
-    if (data && data.activeDelivery && tab !== 'wallet') {
-        setTab('active');
-    }
-    
-    setLoading(false);
-    setRefreshing(false);
-  };
-
-  useEffect(() => {
-    loadData();
-    // Simple polling for new jobs every 15s
-    const interval = setInterval(() => {
-        loadData();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [userId]);
-
   const handleRefresh = () => {
-      setRefreshing(true);
-      loadData();
+      console.log("Refresh (database functionality removed).");
   };
 
   const handleAccept = async (id: number) => {
-      setLoading(true);
-      await acceptDelivery(id, userId);
-      await loadData(); // Reload to update state
+      console.log(`Accepting job ${id} (database functionality removed).`);
   };
 
   const handleUpdateStatus = async (id: number, status: 'picked_up' | 'delivered') => {
-      if (status === 'delivered' && !signature) {
-          alert("Please ask the customer to sign or enter their name.");
-          return;
-      }
-
-      setLoading(true);
-      await updateDeliveryStatus(id, status, signature);
-      setSignature('');
-      await loadData();
+      console.log(`Updating job ${id} to ${status} (database functionality removed).`);
   };
 
   const handleToggleOnline = async () => {
-      if (!context) return;
-      const newStatus = !context.runManProfile.is_online;
-      await toggleRunManStatus(userId, !!newStatus);
-      await loadData();
+      console.log("Toggling online status (database functionality removed).");
+      setContext((prev: any) => ({
+          ...prev,
+          runManProfile: { ...prev.runManProfile, is_online: !prev.runManProfile.is_online }
+      }));
   };
 
   const handleCashOut = async () => {
-      if (confirm("Transfer earnings to your linked bank account?")) {
-          setLoading(true);
-          await withdrawEarnings(userId);
-          await loadData();
-          alert("Funds transferred successfully!");
-      }
+      console.log("Cashing out (database functionality removed).");
   };
-
-  if (loading && !context) {
-      return (
-          <div className="flex h-screen items-center justify-center bg-gray-900 text-white">
-              <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-          </div>
-      );
-  }
 
   if (!context) return null;
 
@@ -92,7 +73,6 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-20">
-      {/* Mobile Header */}
       <div className="bg-gray-800 p-4 shadow-lg sticky top-0 z-20 flex justify-between items-center border-b border-gray-700">
           <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg transition-colors ${isOnline ? 'bg-orange-500 shadow-orange-500/20' : 'bg-gray-600'}`}>
@@ -115,8 +95,6 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
               <Power size={20} />
           </button>
       </div>
-
-      {/* Stats Summary */}
       <div className="grid grid-cols-2 gap-4 p-4">
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
               <p className="text-xs text-gray-400 uppercase">Wallet</p>
@@ -129,8 +107,6 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
               <p className="text-2xl font-bold text-white mt-1">{context.completedDeliveries.length}</p>
           </div>
       </div>
-
-      {/* Tabs */}
       <div className="flex px-4 mb-4 gap-2">
           <button 
             onClick={() => setTab('available')}
@@ -154,8 +130,6 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
               Wallet
           </button>
       </div>
-
-      {/* Content */}
       <div className="px-4 space-y-4">
           
           {tab === 'available' && (
@@ -178,7 +152,7 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
                         <p>{isOnline ? "No jobs in your area right now." : "You are offline."}</p>
                     </div>
                 ) : (
-                    context.availableDeliveries.map(del => (
+                    context.availableDeliveries.map((del: any) => (
                         <div key={del.id} className="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-md">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
@@ -207,7 +181,7 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
                             </div>
 
                             <button 
-                                onClick={() => handleAccept(del.id)}
+                                onClick={() => context.activeDelivery && handleAccept(del.id)}
                                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 Accept Job
@@ -227,7 +201,6 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
                     </div>
                 ) : (
                     <div className="bg-gray-800 rounded-xl p-1 border border-orange-500/50 shadow-lg overflow-hidden">
-                        {/* Map Placeholder */}
                         <div className="h-40 bg-gray-700 relative flex items-center justify-center">
                             <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/OpenStreetMap_Logo_2011.svg')] bg-cover bg-center grayscale"></div>
                             <p className="relative z-10 bg-black/50 px-3 py-1 rounded text-xs text-white backdrop-blur-sm">Map Navigation View</p>
@@ -337,7 +310,7 @@ const RunManDashboard: React.FC<RunManDashboardProps> = ({ userId, onLogout }) =
                         {context.completedDeliveries.length === 0 ? (
                             <div className="p-6 text-center text-gray-500 text-sm">No completed jobs yet.</div>
                         ) : (
-                            context.completedDeliveries.map(del => (
+                            context.completedDeliveries.map((del: any) => (
                                 <div key={del.id} className="p-4 flex justify-between items-center hover:bg-gray-700/50 transition-colors">
                                     <div>
                                         <div className="font-bold text-white text-sm">Delivery #{del.id}</div>

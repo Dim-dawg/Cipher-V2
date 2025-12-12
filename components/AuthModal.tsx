@@ -1,16 +1,12 @@
-
-
 import React, { useState } from 'react';
 import { X, Mail, Lock, Loader2, ArrowRight, User, Store, Briefcase, Bike } from 'lucide-react';
-import { registerUser } from '../services/supabaseService';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, password?: string, role?: 'customer' | 'owner' | 'run_man') => Promise<boolean>;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -35,43 +31,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }) => {
     setLoading(true);
     setError(null);
     
-    // Clean inputs
-    const cleanEmail = email.trim();
-    const cleanPassword = password.trim();
-    
-    try {
-        if (isSignUp) {
-            // Register Logic
-            if (role === 'owner' && !storeName) {
-                throw new Error("Store Name is required for business accounts.");
-            }
-            if (role === 'run_man' && (!vehiclePlate || !phone)) {
-                throw new Error("Vehicle Plate and Phone are required for Run Men.");
-            }
+    console.log("Form submitted (database functionality removed).");
+    console.log({ email, password, username, role, storeName, vehicleType, vehiclePlate, phone });
 
-            const runManDetails = role === 'run_man' ? {
-                vehicleType,
-                vehiclePlate,
-                phone
-            } : undefined;
-
-            await registerUser(cleanEmail, cleanPassword, username, role, storeName, runManDetails);
-            
-            // Auto login after register
-            const success = await onLogin(cleanEmail, cleanPassword, role);
-            if (success) onClose();
-            else setError("Registration successful but failed to log in automatically.");
-        } else {
-            // Login Logic
-            const success = await onLogin(cleanEmail, cleanPassword, role);
-            if (success) onClose();
-            else setError("Invalid email or password.");
-        }
-    } catch (err: any) {
-        setError(err.message || "An unexpected error occurred.");
-    } finally {
+    // Simulate a successful operation and close the modal
+    setTimeout(() => {
         setLoading(false);
-    }
+        onClose();
+    }, 1000);
   };
 
   const toggleMode = () => {

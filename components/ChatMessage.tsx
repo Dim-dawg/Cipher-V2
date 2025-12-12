@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { User, Bot, Sparkles, AlertCircle } from 'lucide-react';
-import { generateProductImage } from '../services/geminiService';
 
 interface ChatMessageProps {
   role: 'user' | 'model';
@@ -31,15 +30,11 @@ const GenerativeProductImage: React.FC<{ src: string, alt: string }> = ({ src, a
     
     setStatus('generating');
     try {
-      const generatedBase64 = await generateProductImage(alt);
-      if (generatedBase64) {
-        setImgSrc(generatedBase64);
-        setStatus('loaded'); // Generated image loaded successfully
-      } else {
-        // Generation failed, fallback
-        setImgSrc(`https://placehold.co/600x400/007f8b/ffffff?text=${encodeURIComponent(alt)}`);
-        setStatus('error');
-      }
+      // Replaced call to generateProductImage with a placeholder
+      console.log("Image generation requested (database functionality removed).");
+      const generatedBase64 = `https://placehold.co/600x400/007f8b/ffffff?text=${encodeURIComponent(alt)}`;
+      setImgSrc(generatedBase64);
+      setStatus('loaded');
     } catch (e) {
       console.error("Image generation failed", e);
       setImgSrc(`https://placehold.co/600x400/007f8b/ffffff?text=${encodeURIComponent(alt)}`);

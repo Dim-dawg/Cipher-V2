@@ -1,11 +1,10 @@
 
 import React from 'react';
-import { Product } from '../types';
 import { Plus, Heart, Store } from 'lucide-react';
 
 interface StoreProductCardProps {
-  product: Product;
-  onAddToCart: (product: Product) => void;
+  product: any;
+  onAddToCart: (product: any) => void;
   isWishlisted?: boolean;
   onToggleWishlist?: () => void;
 }
